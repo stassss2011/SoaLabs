@@ -11,10 +11,11 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, anyhow::Er
         (&Method::GET, "/health-check") => Ok(Response::new(Body::from("Ok"))),
 
         (&Method::GET, "/api/Language") => {
-            let answer = "{name: \"Rust\", machineName: \"wasi\"}";
+            let answer = r#"{ "name": "Rust", "machineName": "wasi" }"#;
 
             Ok(Response::builder()
                 .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
                 .body(Body::from(answer))
                 .unwrap())
         }

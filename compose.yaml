@@ -32,6 +32,9 @@ services:
       - consul
     labels:
       - traefik.enable=true
+      - traefik.http.routers.rust.entrypoints=web
+      - traefik.http.routers.rust.rule=Host(`rust.localhost`)
+      - traefik.http.services.rust.loadbalancer.server.port=80
       - traefik.http.services.rust.loadbalancer.healthcheck.path=/health-check
   
   csharp-service:
@@ -42,14 +45,21 @@ services:
       - consul
     links: 
       - consul
+    deploy:
+      replicas: 3
     labels:
       - traefik.enable=true
+      - traefik.http.routers.csharp.entrypoints=web
+      - traefik.http.routers.csharp.rule=Host(`csharp.localhost`)
+      - traefik.http.services.csharp.loadbalancer.server.port=80
       - traefik.http.services.csharp.loadbalancer.healthcheck.path=/health-check
 
   aggregate-service:
     build:
       context: /aggregate-service
     restart: on-failure
+    deploy:
+      replicas: 2
     depends_on:
       - consul
       - traefik
