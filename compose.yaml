@@ -1,0 +1,70 @@
+services:
+  consul:
+    image: consul
+    ports:
+      - 8500:8500
+
+  traefik:
+    image: traefik
+    command:
+      - --log.level=DEBUG
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:8081
+    ports:
+      - 8081:8081
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  rust-service:
+    build:
+      context: /rust-service
+    platform: wasi/wasm32
+    environment:
+      RUST_BACKTRACE: full
+    runtime: io.containerd.wasmedge.v1
+    restart: on-failure
+    depends_on:
+      - consul
+    links:
+      - consul
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.rust.loadbalancer.healthcheck.path=/health-check
+  
+  csharp-service:
+    build:
+      context: /csharp-service
+    restart: on-failure
+    depends_on:
+      - consul
+    links: 
+      - consul
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.csharp.loadbalancer.healthcheck.path=/health-check
+
+  aggregate-service:
+    build:
+      context: /aggregate-service
+    restart: on-failure
+    depends_on:
+      - consul
+      - traefik
+      - rust-service
+      - csharp-service
+    links: 
+      - consul
+      - traefik
+      - rust-service
+      - csharp-service
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.aggregate.entrypoints=web
+      - traefik.http.routers.aggregate.rule=Host(`aggregate.localhost`)
+      - traefik.http.services.aggregate.loadbalancer.server.port=80
+      - traefik.http.services.aggregate.loadbalancer.sticky=true
+      - traefik.http.services.aggregate.loadbalancer.sticky.cookie.name=REPLICA_ADDRESS
+      - traefik.http.services.aggregate.loadbalancer.healthcheck.path=/health-check
